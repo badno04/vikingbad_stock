@@ -1,0 +1,6 @@
+*.json
+test.py
+todo.md
+venv/
+.vscode/
+*log.txt
