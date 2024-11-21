@@ -3,32 +3,28 @@ import json
 import logging
 import re
 import os
+from time import sleep
 from dotenv import load_dotenv
 
 # load_dotenv('/home/abkh/nasaFiler/bad/.env.ProdBP')
 load_dotenv('/home/allieradm/bad/.env.ProdBP')
 
 
-def error_log(msg:str) -> None:
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.ERROR)
-
-    file_handler = logging.FileHandler('errorlog.txt')
-    log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-    file_handler.setFormatter(log_formatter)
-    logger.addHandler(file_handler)
-    logger.error(msg)
-
-
-def debug_log(msg:str) -> None:
+def write_log(msg:str, lvl:int) -> None:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-
-    file_handler = logging.FileHandler('debuglog.txt')
-    log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-    file_handler.setFormatter(log_formatter)
-    logger.addHandler(file_handler)
-    logger.debug(msg)
+    if lvl==1:
+        file_handler = logging.FileHandler('errorlog.txt')
+        log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+        file_handler.setFormatter(log_formatter)
+        logger.addHandler(file_handler)
+        logger.error(msg)
+    if lvl == 2:
+        file_handler = logging.FileHandler('debuglog.txt')
+        log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+        file_handler.setFormatter(log_formatter)
+        logger.addHandler(file_handler)
+        logger.debug(msg)
 
 
 
@@ -46,17 +42,17 @@ class VikingBadStock:
         try:
             response = requests.get(url=url, headers=self.headers, timeout=self.timeout)
         except TimeoutError as e:
-            error_log(f"Timeout error in get stock in vinkingbad stock class : {repr(e)}")
+            write_log(f"Timeout error in get stock in vinkingbad stock class : {repr(e)}", lvl=1)
             return None
         except Exception as e:
-            error_log(f"Failed getting a response in get stock in vinkingbad stock class, error : {repr(e)}")
+            write_log(f"Failed getting a response in get stock in vinkingbad stock class, error : {repr(e)}", lvl=1)
             return None
             
         if response.status_code == 200:
             res:dict[list] = response.json()
             return res.get("data")
         else:
-            error_log(f"getting error response in get stock in vikingbad. response code: {response.status_code}, response text: {response.text}")
+            write_log(f"getting error response in get stock in vikingbad. response code: {response.status_code}, response text: {response.text}", lvl=1)
             return None
         
 
@@ -78,10 +74,10 @@ class BrightpearlStock:
         try:
             response = requests.get(url=url, headers=self.headers, timeout=self.timeout)
         except TimeoutError as e:
-            error_log(f"Timeout error in get availability: {repr(e)}")
+            write_log(f"Timeout error in get availability: {repr(e)}", lvl=1)
             return None
         except Exception as e:
-            error_log(f"Failed getting a response in get availability, error : {repr(e)}")
+            write_log(f"Failed getting a response in get availability, error : {repr(e)}", lvl=1)
             return None
             
         if response.status_code == 200:
@@ -95,7 +91,7 @@ class BrightpearlStock:
                 return warehouseid_dict.get("inStock")
             return "not provided"
         else:
-            error_log(f"getting error response in get availability. response code: {response.status_code}, response text: {response.text}")
+            write_log(f"getting error response in get availability. response code: {response.status_code}, response text: {response.text}", lvl=1)
             return None
             
     def write_stock_correction(self, productID:str, warehouseID:str, locationID:int, qty:int, cost:int|float)->None|str:
@@ -135,16 +131,19 @@ def strip_letter_prefix(s:str) -> str:
     return re.sub(pattern, '', s)
 
 
-def match_sku(file_name:str, sku:str) -> dict|str:
+def get_products_data(file_name:str) -> list[dict]:
     with open(f'{file_name}.json', 'r') as file:
-        data:list[dict] = json.load(file)
-        striped_sku:str = strip_letter_prefix(sku)
-        for ele in data:
-            file_sku = ele.get("sku")
-            if file_sku is not None:
-                if striped_sku == strip_letter_prefix(file_sku):
-                    return ele
-        return sku
+        return json.load(file)
+
+
+def match_sku(products_data:list[dict], sku:str) -> dict|str:
+    striped_sku:str = strip_letter_prefix(sku)
+    for ele in products_data:
+        file_sku = ele.get("sku")
+        if file_sku is not None:
+            if striped_sku == strip_letter_prefix(file_sku):
+                return ele
+    return sku
 
 
 def convert_to_int(str_num:str) -> int|None:
@@ -175,7 +174,7 @@ def append_list_to_json(list_data:list, json_file_path:str) -> None:
             with open(json_file_path, 'r') as file:
                 json_data = json.load(file)
         except json.JSONDecodeError:
-            error_log(f"Error reading {json_file_path}. File might be corrupted.")
+            write_log(f"Error reading {json_file_path}. File might be corrupted.", lvl=1)
             return
 
     json_data.append(list_data)
@@ -185,7 +184,7 @@ def append_list_to_json(list_data:list, json_file_path:str) -> None:
             json.dump(json_data, indent=4)
         print(f"Successfully appended list to {json_file_path}")
     except Exception as e:
-        error_log(f"Error writing to file: {repr(e)}")
+        write_log(f"Error writing to file: {repr(e)}", lvl=1)
 
     
 locationID = 19
@@ -194,9 +193,13 @@ warehouseID = "10"
 if __name__ == "__main__":
     vb_data = VikingBadStock().get_stock()
     not_found_sku = []
+    products_data = get_products_data(file_name="vbproducts")
+    sleep_counter = 0
     for vb_product in vb_data:
+        if sleep_counter % 5 == 0:
+            sleep(1)
         vb_sku:str = vb_product.get("sku")
-        matched_sku:dict|str = match_sku("vbproducts", vb_sku)
+        matched_sku:dict|str = match_sku(products_data=products_data, sku=vb_sku)
 
         if isinstance(matched_sku, str):
             not_found_sku.append(matched_sku)
@@ -205,41 +208,41 @@ if __name__ == "__main__":
         
         vb_stock:dict|None = vb_product.get("stock")
         if vb_stock is None:
-            error_log("error in vb product: ", vb_product)
+            write_log("error in vb product: ", vb_product, lvl=1)
             continue
         
         vb_available:str|None = vb_stock.get("available")
         if vb_available is None:
-            debug_log(f"vb_available is none for: {vb_product}")
+            write_log(f"vb_available is none for: {vb_product}", lvl=2)
             continue
             
         vb_available_int:int|None = convert_to_int(vb_available)
         if vb_available is None:
-            error_log(f"value error in converting available to int in: {vb_product}")
+            write_log(f"value error in converting available to int in: {vb_product}", lvl=1)
             continue
 
         productID:str = matched_sku.get("productErpId")
         inStock:int|None|str = BrightpearlStock().get_product_availability(productID=productID, warehouseID=warehouseID)
         if inStock is None:
-            error_log(f"brightpearl inStock is None in: {vb_product}")
+            write_log(f"brightpearl inStock is None in: {vb_product}", lvl=1)
             continue
         
         if isinstance(inStock, str):
             inStock = 0
         
         if inStock == 0 and vb_available_int < 1:
-            debug_log(f"no need for correction for {vb_product} snice both inStock and vb_available = 0")
+            write_log(f"no need for correction for {vb_product} snice both inStock and vb_available = 0", lvl=2)
             continue
             
         intern_sku:str = matched_sku.get("sku")
         cost:float = convert_to_float(matched_sku.get("costPrice"))
         
         if inStock == vb_available_int:
-            debug_log(f"no need for correction for {vb_product} snice both inStock and vb_available equal, inStock: {inStock}, vb_available: {vb_available}")
+            write_log(f"no need for correction for {vb_product} snice both inStock and vb_available equal, inStock: {inStock}, vb_available: {vb_available}", lvl=2)
     
         if inStock > vb_available_int:
             qty = inStock-vb_available_int
-            debug_log(f"preforming correction for productid: {productID} with qty: {qty}")
+            write_log(f"preforming correction for productid: {productID} with qty: {qty}", lvl=2)
             result:None|str = BrightpearlStock().write_stock_correction(
                 productID=productID,
                 warehouseID=warehouseID,
@@ -248,11 +251,11 @@ if __name__ == "__main__":
                 cost=cost
             )
             if result is not None:
-                error_log(result)
+                write_log(result, lvl=1)
                 
         if inStock < vb_available_int:
             qty = vb_available_int-inStock
-            debug_log(f"preforming correction for productid: {productID} with qty: {qty}")
+            write_log(f"preforming correction for productid: {productID} with qty: {qty}", lvl=2)
             result:None|str = BrightpearlStock().write_stock_correction(
                 productID=productID,
                 warehouseID=warehouseID,
@@ -261,6 +264,6 @@ if __name__ == "__main__":
                 cost=cost
             )
             if result is not None:
-                error_log(result)
+                write_log(result, lvl=1)
         
     append_list_to_json(list_data=not_found_sku, json_file_path="notfoundsku.json")
