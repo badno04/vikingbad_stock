@@ -234,6 +234,9 @@ if __name__ == "__main__":
         intern_sku:str = matched_sku.get("sku")
         cost:float = convert_to_float(matched_sku.get("costPrice"))
         
+        if inStock == vb_available_int:
+            debug_log(f"no need for correction for {vb_product} snice both inStock and vb_available equal, inStock: {inStock}, vb_available: {vb_available}")
+    
         if inStock > vb_available_int:
             qty = inStock-vb_available_int
             debug_log(f"preforming correction for productid: {productID} with qty: {qty}")
@@ -247,8 +250,7 @@ if __name__ == "__main__":
             if result is not None:
                 error_log(result)
                 
-
-        elif inStock < vb_available_int:
+        if inStock < vb_available_int:
             qty = vb_available_int-inStock
             debug_log(f"preforming correction for productid: {productID} with qty: {qty}")
             result:None|str = BrightpearlStock().write_stock_correction(
