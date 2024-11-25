@@ -3,27 +3,30 @@ import json
 import logging
 import re
 import os
-from time import sleep
+from time import sleep, perf_counter
 from dotenv import load_dotenv
 
 # load_dotenv('/home/abkh/nasaFiler/bad/.env.ProdBP')
 load_dotenv('/home/allieradm/bad/.env.ProdBP')
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+
+error_handler = logging.FileHandler('errorlog.txt')
+debug_handler = logging.FileHandler('debuglog.txt')
+
+error_handler.setFormatter(log_formatter)
+debug_handler.setFormatter(log_formatter)
+
+logger.addHandler(error_handler)
+logger.addHandler(debug_handler)
+
 def write_log(msg:str, lvl:int) -> None:
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
     if lvl==1:
-        file_handler = logging.FileHandler('errorlog.txt')
-        log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-        file_handler.setFormatter(log_formatter)
-        logger.addHandler(file_handler)
         logger.error(msg)
     if lvl == 2:
-        file_handler = logging.FileHandler('debuglog.txt')
-        log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-        file_handler.setFormatter(log_formatter)
-        logger.addHandler(file_handler)
         logger.debug(msg)
 
 
@@ -181,8 +184,7 @@ def append_list_to_json(list_data:list, json_file_path:str) -> None:
 
     try:
         with open(json_file_path, 'w') as file:
-            json.dump(json_data, indent=4)
-        print(f"Successfully appended list to {json_file_path}")
+            json.dump(json_data, file, indent=4)
     except Exception as e:
         write_log(f"Error writing to file: {repr(e)}", lvl=1)
 
@@ -190,7 +192,7 @@ def append_list_to_json(list_data:list, json_file_path:str) -> None:
 locationID = 19
 warehouseID = "10"
     
-if __name__ == "__main__":
+def main()->None:
     vb_data = VikingBadStock().get_stock()
     not_found_sku = []
     products_data = get_products_data(file_name="vbproducts")
@@ -267,3 +269,11 @@ if __name__ == "__main__":
                 write_log(result, lvl=1)
         
     append_list_to_json(list_data=not_found_sku, json_file_path="notfoundsku.json")
+    
+
+if __name__ == "__main__":
+    start = perf_counter()
+    main()
+    end = perf_counter
+    elapsed = end - start
+    print(f'Time taken: {elapsed:.6f} seconds')
