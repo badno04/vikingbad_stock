@@ -274,6 +274,6 @@ def main()->None:
 if __name__ == "__main__":
     start = perf_counter()
     main()
-    end = perf_counter
+    end = perf_counter()
     elapsed = end - start
     print(f'Time taken: {elapsed:.6f} seconds')
