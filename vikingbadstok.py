@@ -188,6 +188,10 @@ def append_list_to_json(list_data:list, json_file_path:str) -> None:
     except Exception as e:
         write_log(f"Error writing to file: {repr(e)}", lvl=1)
 
+
+def calculate_qty(a:int, b:int) -> int:
+    difference = b - a
+    return difference
     
 locationID = 19
 warehouseID = "10"
@@ -241,23 +245,10 @@ def main()->None:
         
         if inStock == vb_available_int:
             write_log(f"no need for correction for {vb_product} snice both inStock and vb_available equal, inStock: {inStock}, vb_available: {vb_available}", lvl=2)
-    
-        if inStock > vb_available_int:
-            qty = inStock-vb_available_int
-            write_log(f"preforming correction for productid: {productID} with qty: {qty}", lvl=2)
-            result:None|str = BrightpearlStock().write_stock_correction(
-                productID=productID,
-                warehouseID=warehouseID,
-                locationID=locationID,
-                qty=qty,
-                cost=cost
-            )
-            if result is not None:
-                write_log(result, lvl=1)
-                
-        if inStock < vb_available_int:
-            qty = vb_available_int-inStock
-            write_log(f"preforming correction for productid: {productID} with qty: {qty}", lvl=2)
+
+        else:
+            qty:int = calculate_qty(inStock, vb_available_int)
+            write_log(f"preforming correction for productid: {productID}, inStock: {inStock}, vbStock: {vb_available_int} with qty: {qty}", lvl=2)
             result:None|str = BrightpearlStock().write_stock_correction(
                 productID=productID,
                 warehouseID=warehouseID,
@@ -277,3 +268,4 @@ if __name__ == "__main__":
     end = perf_counter()
     elapsed = end - start
     print(f'Time taken: {elapsed:.6f} seconds')
+    write_log(f"running time is: {elapsed}. another format: {elapsed:.6f} seconds", lvl=1)
