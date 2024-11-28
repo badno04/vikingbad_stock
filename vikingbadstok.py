@@ -96,7 +96,8 @@ class BrightpearlStock:
         else:
             write_log(f"getting error response in get availability. response code: {response.status_code}, response text: {response.text}", lvl=1)
             return None
-            
+
+
     def write_stock_correction(self, productID:str, warehouseID:str, locationID:int, qty:int, cost:int|float)->None|str:
         url = f"{self.base_url}/warehouse-service/warehouse/{warehouseID}/stock-correction"
         try:
@@ -193,9 +194,21 @@ def calculate_qty(a:int, b:int) -> int:
     difference = b - a
     return difference
     
+    
+def save_products_data(file_name: str, data: list[dict]) -> None:
+    with open(f'{file_name}.json', 'w') as file:
+        json.dump(data, file, indent=4)
+        
+        
+def update_cached_availability(products_data: list[dict], productID: str, new_value: int) -> None:
+    for product in products_data:
+        if product.get("productErpId") == productID:
+            product["cachedAvailability"] = new_value
+            break
+        
 locationID = 19
 warehouseID = "10"
-    
+
 def main()->None:
     vb_data = VikingBadStock().get_stock()
     not_found_sku = []
@@ -228,27 +241,29 @@ def main()->None:
             continue
 
         productID:str = matched_sku.get("productErpId")
-        inStock:int|None|str = BrightpearlStock().get_product_availability(productID=productID, warehouseID=warehouseID)
-        if inStock is None:
-            write_log(f"brightpearl inStock is None in: {vb_product}", lvl=1)
-            continue
+        cached_availanility:int = matched_sku.get("cachedAvailability")
+
         
-        if isinstance(inStock, str):
-            inStock = 0
-        
-        if inStock == 0 and vb_available_int < 1:
-            write_log(f"no need for correction for {vb_product} snice both inStock and vb_available = 0", lvl=2)
+        if cached_availanility == 0 and vb_available_int < 1:
+            write_log(f"no need for correction for {vb_product} snice both cached_availanility and vb_available = 0", lvl=2)
             continue
             
-        intern_sku:str = matched_sku.get("sku")
-        cost:float = convert_to_float(matched_sku.get("costPrice"))
-        
-        if inStock == vb_available_int:
-            write_log(f"no need for correction for {vb_product} snice both inStock and vb_available equal, inStock: {inStock}, vb_available: {vb_available}", lvl=2)
+        if cached_availanility == vb_available_int:
+            write_log(f"no need for correction for {vb_product} snice both cached_availanility and vb_available equal, cached_availanility: {cached_availanility}, vb_available: {vb_available}", lvl=2)
 
         else:
+            inStock:int|None|str = BrightpearlStock().get_product_availability(productID=productID, warehouseID=warehouseID)
+            if inStock is None:
+                write_log(f"brightpearl inStock is None in: {vb_product}", lvl=1)
+                inStock = cached_availanility
+        
+            if isinstance(inStock, str):
+                inStock = 0
+            
+            update_cached_availability(products_data=products_data, productID=productID, new_value=inStock)
+            cost:float = convert_to_float(matched_sku.get("costPrice"))
             qty:int = calculate_qty(inStock, vb_available_int)
-            write_log(f"preforming correction for productid: {productID}, inStock: {inStock}, vbStock: {vb_available_int} with qty: {qty}", lvl=2)
+            write_log(f"preforming correction for productid: {productID}, cached_availanility: {cached_availanility}, inStock: {inStock}, vbStock: {vb_available_int} with qty: {qty}", lvl=2)
             result:None|str = BrightpearlStock().write_stock_correction(
                 productID=productID,
                 warehouseID=warehouseID,
@@ -256,9 +271,11 @@ def main()->None:
                 qty=qty,
                 cost=cost
             )
+            sleep_counter +=1
             if result is not None:
                 write_log(result, lvl=1)
-        
+                
+    save_products_data(file_name="vbproducts", data=products_data)
     append_list_to_json(list_data=not_found_sku, json_file_path="notfoundsku.json")
     
 
