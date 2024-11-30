@@ -260,7 +260,7 @@ def main()->None:
             if isinstance(inStock, str):
                 inStock = 0
             
-            update_cached_availability(products_data=products_data, productID=productID, new_value=inStock)
+            update_cached_availability(products_data=products_data, productID=productID, new_value=vb_available_int)
             cost:float = convert_to_float(matched_sku.get("costPrice"))
             qty:int = calculate_qty(inStock, vb_available_int)
             write_log(f"preforming correction for productid: {productID}, cached_availanility: {cached_availanility}, inStock: {inStock}, vbStock: {vb_available_int} with qty: {qty}", lvl=2)
