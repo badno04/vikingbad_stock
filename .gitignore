@@ -1,5 +1,7 @@
 *.json
 test.py
+fixsku.py
+output.csv
 todo.md
 venv/
 .vscode/

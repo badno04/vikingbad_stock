@@ -239,7 +239,7 @@ warehouseID = "10"
 def main() -> None:
     vb_data = VikingBadStock().get_stock()
     if vb_data is None:
-        write_log(msg="vikingbad data is None breaking out of the loop", lvl="1")
+        write_log(msg="vikingbad data is None breaking out of the loop", lvl=1)
         return
 
     not_found_sku = []
@@ -262,31 +262,20 @@ def main() -> None:
 
         vb_available: str | None = vb_stock.get("available")
         if vb_available is None:
-            write_log(f"vb_available is none for: {vb_product}", lvl=2)
             continue
 
         vb_available_int: int | None = convert_to_int(vb_available)
         if vb_available is None:
-            write_log(
-                f"value error in converting available to int in: {vb_product}", lvl=1
-            )
             continue
 
         productID: str = matched_sku.get("productErpId")
         cached_availanility: int = matched_sku.get("cachedAvailability")
 
         if cached_availanility == 0 and vb_available_int < 1:
-            write_log(
-                f"no need for correction for {vb_product} snice both cached_availanility and vb_available = 0",
-                lvl=2,
-            )
             continue
 
         if cached_availanility == vb_available_int:
-            write_log(
-                f"no need for correction for {vb_product} snice both cached_availanility and vb_available equal, cached_availanility: {cached_availanility}, vb_available: {vb_available}",
-                lvl=2,
-            )
+            continue
 
         else:
             inStock: int | None | str = BrightpearlStock().get_product_availability(
@@ -306,10 +295,6 @@ def main() -> None:
             )
             cost: float = convert_to_float(matched_sku.get("costPrice"))
             qty: int = calculate_qty(inStock, vb_available_int)
-            write_log(
-                f"preforming correction for productid: {productID}, cached_availanility: {cached_availanility}, inStock: {inStock}, vbStock: {vb_available_int} with qty: {qty}",
-                lvl=2,
-            )
             result: None | str = BrightpearlStock().write_stock_correction(
                 productID=productID,
                 warehouseID=warehouseID,
