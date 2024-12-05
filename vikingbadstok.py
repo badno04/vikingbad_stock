@@ -25,7 +25,7 @@ def write_log(msg: str, lvl: int) -> None:
     if lvl == 1:
         logger.error(msg)
     if lvl == 2:
-        logger.debug(msg)
+        logger.warning(msg)
 
 
 class VikingBadStock:
@@ -317,5 +317,5 @@ if __name__ == "__main__":
     elapsed = end - start
     print(f"Time taken: {elapsed:.6f} seconds")
     write_log(
-        f"running time is: {elapsed}. another format: {elapsed:.6f} seconds", lvl=1
+        f"running time is: {elapsed}. another format: {elapsed:.6f} seconds", lvl=2
     )
